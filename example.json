@@ -1,0 +1,4 @@
+{
+    "literals": [true, false, null],
+    "numbers": [0, 123]
+}
