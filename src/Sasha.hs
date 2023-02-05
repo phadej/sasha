@@ -53,10 +53,7 @@ sasha grammar input0 = finish <$> go Nothing 0 input0 grammar
     go :: Maybe (tag, Int) -> Int -> BS.ByteString -> Sasha tag -> Maybe (tag, Int)
     go acc !_   _       [] = acc
     go acc !pfx input   ts = case BS.uncons input of
-        Nothing -> acc' <|> acc
-          where
-            acc' :: Maybe (tag, Int)
-            acc' = listToMaybe [ (tag, pfx) | (tag, ere) <- ts, nullable ere ]
+        Nothing       -> acc
         Just (c, sfx) -> go (acc' <|> acc) (pfx + 1) sfx ts'
           where
             ts' = derivativeSasha c ts
