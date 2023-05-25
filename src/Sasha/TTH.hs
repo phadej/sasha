@@ -29,19 +29,19 @@ import Language.Haskell.TH (Code, CodeQ, Exp, Q)
 import Control.Monad               (forM)
 import Data.List                   (sortOn)
 import Data.Map                    (Map)
-import Data.Maybe                  (listToMaybe)
+import Data.Maybe                  (isJust, listToMaybe)
 import Data.Ord                    (Down (..))
 import Data.Word                   (Word8)
+import Data.Word8Set               (Word8Set)
 import Language.Haskell.TTH.LetRec (letrecE)
 
 import qualified Data.ByteString     as BS
 import qualified Data.Map.Strict     as Map
+import qualified Data.Word8Set       as W8S
 import qualified Language.Haskell.TH as TH
 
 import Sasha.Internal.ERE
-import Sasha.Internal.Word8Set (Word8Set)
-
-import qualified Sasha.Internal.Word8Set as W8S
+import Sasha.Internal.Word8Set (memberCode)
 
 -- | Lexer grammar specification: tag codes and regular expressions.
 type SaTTH tag = [(Code Q tag, ERE)]
@@ -110,7 +110,7 @@ satth grammar0 = letrecE
                 -> Code Q BS.ByteString
                 -> Code Q (Maybe (tag, Int))
             caseAnalysis acc pfx c sfx = caseTTH [|| () ||]
-                [ (W8S.memberCode c ws, body)
+                [ (memberCode c ws, body)
 
                 | (ws, mnext, modify) <- nexts
                 , let body = case mnext of
@@ -139,9 +139,9 @@ data Meas
 
 meas :: Word8Set -> Meas
 meas ws
-    | W8S.size ws < 2      = MeasLite ws
-    | W8S.isSingleRange ws = MeasCont (Down (W8S.size ws)) ws
-    | otherwise            = MeasSize (W8S.size ws) ws
+    | W8S.size ws < 2         = MeasLite ws
+    | isJust (W8S.isRange ws) = MeasCont (Down (W8S.size ws)) ws
+    | otherwise               = MeasSize (W8S.size ws) ws
 
 -------------------------------------------------------------------------------
 -- Aliases

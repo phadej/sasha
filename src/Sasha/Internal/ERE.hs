@@ -45,25 +45,25 @@ module Sasha.Internal.ERE (
 
 import Algebra.Lattice
        (BoundedJoinSemiLattice (..), BoundedMeetSemiLattice (..), Lattice (..))
-import Data.Bits               (shiftR, (.&.), (.|.))
-import Data.Char               (ord)
-import Data.Foldable           (toList)
-import Data.Set                (Set)
-import Data.String             (IsString (..))
-import Data.Word               (Word8)
-import Sasha.Internal.Word8Set (Word8Set)
-import Test.QuickCheck       (Arbitrary (..))
+import Data.Bits       (shiftR, (.&.), (.|.))
+import Data.Char       (ord)
+import Data.Foldable   (toList)
+import Data.Set        (Set)
+import Data.String     (IsString (..))
+import Data.Word       (Word8)
+import Data.Word8Set   (Word8Set)
+import Test.QuickCheck (Arbitrary (..))
 
+import qualified Data.Set        as Set
+import qualified Data.Word8Set   as W8S
 import qualified Test.QuickCheck as QC
-import qualified Data.Set                as Set
-import qualified Sasha.Internal.Word8Set as W8S
 
 -------------------------------------------------------------------------------
 -- Doctest
 -------------------------------------------------------------------------------
 
 -- $setup
--- >>> :set -XOverloadedStrings 
+-- >>> :set -XOverloadedStrings
 -- >>> import Control.Monad (void)
 -- >>> import Data.Foldable (traverse_)
 -- >>> import Data.List (sort)
@@ -300,7 +300,7 @@ instance Arbitrary ERE where
             [ (20, EREUnion <$> arbitrary <*> pure Set.empty)
             , (1, pure eps)
             , (1, pure empty)
-            ] 
+            ]
               | otherwise = QC.oneof
             [ do
                 p <- arbPartition (n - 1)
@@ -308,7 +308,7 @@ instance Arbitrary ERE where
             , do
                 p <- arbPartition (n - 1)
                 appends <$> traverse arb p
-  
+
             , star <$> arb (n - 1)
             , complement <$> arb (n - 1)
             ]
