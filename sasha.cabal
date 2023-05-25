@@ -1,7 +1,6 @@
 cabal-version:      3.0
 name:               sasha
-version:            0
-x-revision:         1
+version:            0.1
 author:             Oleg Grenrus <oleg.grenrus@iki.fi>
 maintainer:         Oleg Grenrus <oleg.grenrus@iki.fi>
 synopsis:           A staged lexer generator
@@ -15,8 +14,11 @@ license:            BSD-3-Clause
 license-file:       LICENSE
 homepage:           https://github.com/phadej/sasha
 bug-reports:        https://github.com/phadej/sasha/issues
-extra-source-files: example.json
-tested-with:        GHC ==9.0.2 || ==9.2.7 || ==9.4.5 || ==9.6.1
+extra-source-files:
+  CHANGELOG.md
+  example.json
+
+tested-with:        GHC ==9.0.2 || ==9.2.7 || ==9.4.5 || ==9.6.2
 
 source-repository head
   type:     git
@@ -44,6 +46,7 @@ library
     , template-haskell
     , th-letrec         ^>=0.1
     , wide-word         ^>=0.1.4.0
+    , word8set          ^>=0.1
 
   exposed-modules:
     Sasha
