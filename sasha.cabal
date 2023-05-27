@@ -76,6 +76,7 @@ test-suite sasha-tests
     , deepseq
     , lattices
     , sasha
+    , template-haskell
 
   -- test dependencies
   build-depends:

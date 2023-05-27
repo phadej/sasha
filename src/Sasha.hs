@@ -28,41 +28,41 @@ module Sasha (
     digit,
 ) where
 
-import Control.Applicative ((<|>))
-import Data.Maybe          (listToMaybe)
-import Data.Word           (Word8)
+import Data.Word (Word8)
 
 import qualified Data.ByteString as BS
 
 import Sasha.Internal.ERE
 
--- | Lexer grammar specification: tags and regular expressions.
-type Sasha tag = [(tag, ERE)]
+-- | Lexer grammar specification: regular expression and result builder function
+-- which takes a prefix (the matching part) and a suffix (the rest of input).
+type Sasha r = [(ERE, BS.ByteString -> BS.ByteString -> r)]
 
 -- | Scan for a single token.
 sasha
-    :: forall tag. Sasha tag                      -- ^ scanner definition
-    -> BS.ByteString                              -- ^ input
-    -> Maybe (tag, BS.ByteString, BS.ByteString)  -- ^ matched token, consumed bytestring, left over bytestring
-sasha grammar input0 = finish <$> go Nothing 0 input0 grammar
+    :: forall r. r    -- ^ no match value
+    -> Sasha r        -- ^ scanner rules definitions
+    -> BS.ByteString  -- ^ input
+    -> r              -- ^ result
+sasha noMatch grammar input0 = go noMatch 0 input0 grammar
   where
-    finish :: (tag, Int) -> (tag, BS.ByteString, BS.ByteString)
-    finish (tag, i) = case BS.splitAt i input0 of
-        (pfx, sfx) -> (tag, pfx, sfx)
-
-    go :: Maybe (tag, Int) -> Int -> BS.ByteString -> Sasha tag -> Maybe (tag, Int)
-    go acc !_   _       [] = acc
-    go acc !pfx input   ts = case BS.uncons input of
-        Nothing       -> acc
-        Just (c, sfx) -> go (acc' <|> acc) (pfx + 1) sfx ts'
+    -- Note: acc has to be lazy
+    go :: r -> Int -> BS.ByteString -> Sasha r -> r
+    go acc !_ !_       [] = acc
+    go acc !i !input   ts = case BS.uncons input of
+        Nothing          -> acc
+        Just (c, input') -> go (next accs acc) (i + 1) input' ts'
           where
             ts' = derivativeSasha c ts
-            acc' = listToMaybe [ (tag, pfx + 1) | (tag, ere) <- ts', nullable ere]
+            accs = [ case BS.splitAt (i + 1) input0 of (pfx, sfx) -> f pfx sfx | (ere, f) <- ts', nullable ere]
 
-derivativeSasha :: Word8 -> Sasha tag -> Sasha tag
+            next []    x = x
+            next (x:_) _ = x
+
+derivativeSasha :: Word8 -> Sasha r -> Sasha r
 derivativeSasha c ts =
-    [ (t, ere')
-    | (t, ere) <- ts
+    [ (ere', f)
+    | (ere,  f) <- ts
     , let ere' = derivative c ere
     , not (isEmpty ere')
     ]

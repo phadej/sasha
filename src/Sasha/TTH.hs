@@ -43,50 +43,54 @@ import qualified Language.Haskell.TH as TH
 import Sasha.Internal.ERE
 import Sasha.Internal.Word8Set (memberCode)
 
--- | Lexer grammar specification: tag codes and regular expressions.
-type SaTTH tag = [(Code Q tag, ERE)]
+-- | Lexer grammar specification: regular expression and result builder function
+-- which takes a prefix (the matching part) and a suffix (the rest of input).
+type SaTTH r = [(ERE, Code Q BS.ByteString -> Code Q BS.ByteString -> Code Q r)]
+
+-- | Scan for a single token.
+satth
+    :: forall r. Code Q r           -- ^ no match value
+    -> SaTTH r                      -- ^ scanner rules definitions
+    -> Code Q (BS.ByteString -> r)  -- ^ scanner code
+satth noMatch rules = [|| \bs -> $$(satth' noMatch rules [|| bs ||]) bs ||]
 
 -- | Generate a scanner code.
-satth :: forall tag. SaTTH tag -> Code Q (BS.ByteString -> Maybe (tag, BS.ByteString, BS.ByteString))
-satth grammar0 = letrecE
+satth' :: forall r. Code Q r -> SaTTH r -> Code Q BS.ByteString -> Code Q (BS.ByteString -> r)
+satth' noMatch grammar0 input0 = letrecE
     (\_ -> "state")
     trans
     start
   where
-    grammar0' :: SaTTH' tag
+    grammar0' :: SaTTH' r
     grammar0' =
-        [ S i t ere
-        | (i, (t, ere)) <- zip [0..] grammar0
+        [ S i f ere
+        | (i, (ere, f)) <- zip [0..] grammar0
         ]
 
-    start :: Monad m => (SaTTH' tag -> m (Code Q (R tag))) -> m (Code Q (BS.ByteString -> Maybe (tag, BS.ByteString, BS.ByteString)))
+    start :: Monad m => (SaTTH' r -> m (Code Q (R r))) -> m (Code Q (BS.ByteString -> r))
     start rec = do
         startCode <- rec grammar0'
         -- we assume that none of the tokens accepts an empty string,
         -- so we start without specifying last match.
-        return [|| \input -> case $$startCode Nothing (0 :: Int) input of
-            Nothing       -> Nothing
-            Just (tag, i) -> case BS.splitAt i input of
-                (pfx, sfx) -> Just (tag, pfx, sfx)
-            ||]
+        return [|| \input -> $$startCode $$noMatch (0 :: Int) input ||]
 
-    trans :: Monad m => (SaTTH' tag -> m (Code Q (R tag))) -> SaTTH' tag -> m (Code Q (R tag))
+    trans :: Monad m => (SaTTH' r -> m (Code Q (R r))) -> SaTTH' r -> m (Code Q (R r))
     trans _rec grammar
         | emptySashaTTH grammar
         = return [|| \ !acc _ _ -> acc ||]
 
     trans  rec grammar = do
         -- if the input is not empty?
-        let grammarM1 :: Map (SaTTH' tag) Word8Set
+        let grammarM1 :: Map (SaTTH' r) Word8Set
             grammarM1 = Map.fromListWith W8S.union
                 [ (derivativeSaTTH c grammar, W8S.singleton c)
                 | c <- [ minBound .. maxBound ]
                 ]
 
             -- non-empty map
-            grammarM :: [(Word8Set, SaTTH' tag, M tag)]
+            grammarM :: [(Word8Set, SaTTH' r, M r)]
             grammarM =
-                [ (c, grammar', makeM grammar')
+                [ (c, grammar', makeM input0 grammar')
                 | (grammar', c) <- Map.toList grammarM1
                 ]
 
@@ -99,32 +103,33 @@ satth grammar0 = letrecE
                 return (ws, Next next, modify)
 
         -- sort next states
-        let nexts :: [(Word8Set, Next (Code Q (R tag)), M tag)]
+        let nexts :: [(Word8Set, Next (Code Q (R r)), M r)]
             nexts = sortOn (\(ws, _, _) -> meas ws) nexts0
 
         -- transition case
         let caseAnalysis
-                :: Code Q (Maybe (tag, Int))
+                :: Code Q r
                 -> Code Q Int
                 -> Code Q Word8
                 -> Code Q BS.ByteString
-                -> Code Q (Maybe (tag, Int))
-            caseAnalysis acc pfx c sfx = caseTTH [|| () ||]
+                -> Code Q r
+            caseAnalysis acc pos c input' = caseTTH [|| () ||]
                 [ (memberCode c ws, body)
 
                 | (ws, mnext, modify) <- nexts
                 , let body = case mnext of
                         NextEmpty -> acc
-                        NextEps   -> modify acc [|| $$pfx + 1 ||]
-                        Next next -> [|| let !pfx' = $$pfx + 1 in $$next $$(modify acc [|| pfx' ||]) pfx' $$sfx ||]
+                        NextEps   -> modify acc [|| $$pos + 1 ||]
+                        Next next -> [|| let !pos' = $$pos + 1 in $$next $$(modify acc [|| pos' ||]) pos' $$input' ||]
                 ]
 
         let debugWarns :: Q ()
             debugWarns = return ()
 
-        return $ TH.bindCode_ debugWarns [|| \ !acc !_pfx !input -> case BS.uncons input of
-            Nothing        -> acc
-            Just (c, _sfx) -> $$(caseAnalysis [|| acc ||] [|| _pfx ||] [|| c ||] [|| _sfx ||])
+        -- Note: acc should stay lazy
+        return $ TH.bindCode_ debugWarns [|| \ acc !_pos !input -> case BS.uncons input of
+            Nothing           -> acc
+            Just (c, _input') -> $$(caseAnalysis [|| acc ||] [|| _pos ||] [|| c ||] [|| _input' ||])
             ||]
 
 -------------------------------------------------------------------------------
@@ -153,20 +158,20 @@ meas ws
 -- * position
 -- * input
 --
-type R tag = Maybe (tag, Int) -> Int -> BS.ByteString -> Maybe (tag, Int)
+type R r = r -> Int -> BS.ByteString -> r
 
 -- | Last accept modifier.
-type M tag = Code Q (Maybe (tag, Int)) -> CodeQ Int -> CodeQ (Maybe (tag, Int))
+type M r = Code Q r -> CodeQ Int -> CodeQ r
 
-makeM :: forall tag. SaTTH' tag -> M tag
-makeM grammar acc pfx = case acc' of
-    Nothing  -> acc
-    Just tag -> [|| Just ($$tag, $$pfx) ||]
+makeM :: forall r. Code Q BS.ByteString -> SaTTH' r -> M r
+makeM input0 grammar acc pos = case acc' of
+    Nothing -> acc
+    Just f  -> [|| case BS.splitAt $$pos $$input0 of (_pfx, _sfx) -> $$(f [|| _pfx ||] [|| _sfx ||]) ||]
   where
-    acc' :: Maybe (Code Q tag)
+    acc' :: Maybe (Code Q BS.ByteString -> Code Q BS.ByteString -> Code Q r)
     acc' = listToMaybe
-        [ tag
-        | S _ tag ere <- grammar
+        [ f
+        | S _ f ere <- grammar
         , nullable ere
         ]
 
@@ -193,7 +198,7 @@ caseTTH c guards = TH.unsafeCodeCoerce $ TH.caseE (TH.unTypeCode c)
 -------------------------------------------------------------------------------
 
 -- | We give each tag an integer, so we can order them.
-data S tag = S !Int !(Code Q tag) !ERE
+data S r = S !Int !(Code Q BS.ByteString -> Code Q BS.ByteString -> Code Q r) !ERE
 
 instance Show (S tag) where
     show (S i _ ere) = show (i, ere)
