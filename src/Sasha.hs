@@ -13,6 +13,7 @@ module Sasha (
     eps,
     char,
     charRange,
+    charSet,
     utf8Char,
     anyChar,
     anyUtf8Char,

@@ -9,6 +9,7 @@ module Sasha.TTH (
     eps,
     char,
     charRange,
+    charSet,
     utf8Char,
     anyChar,
     anyUtf8Char,
