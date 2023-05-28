@@ -30,8 +30,8 @@ main = do
                 , B.bench "aeson" $ B.nf (A.decodeStrict @A.Value) input
                 ]
             , B.bgroup "utf8"
-                [ B.bench "sasha"      $ B.whnf (accepts sashaToken) input
-                , B.bench "satth"      $ B.whnf (accepts satthToken) input
+                [ B.bench "sasha"      $ B.whnf (accepts sashaUtf8) input
+                , B.bench "satth"      $ B.whnf (accepts satthUtf8) input
 #if MIN_VERSION_bytestring(0,11,2)
                 , B.bench "bytestring" $ B.whnf BS.isValidUtf8 input
 #endif
@@ -71,16 +71,16 @@ tokens scan = go
 {-# INLINE tokens #-}
 
 accepts
-    :: (BS.ByteString -> Maybe (a, b, BS.ByteString))  -- ^ single token scanner
-    -> BS.ByteString                                   -- ^ input
+    :: (BS.ByteString -> Maybe BS.ByteString)  -- ^ single token scanner
+    -> BS.ByteString                           -- ^ input
     -> Bool
 accepts scan = go
   where
     go !bs
         | BS.null bs = True
         | otherwise  = case scan bs of
-            Nothing          -> False
-            Just (_, _, sfx) -> go sfx
+            Nothing  -> False
+            Just sfx -> go sfx
 {-# INLINE accepts #-}
 
 expectedJson :: [(Tk, BS.ByteString)]

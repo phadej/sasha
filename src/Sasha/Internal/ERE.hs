@@ -18,6 +18,7 @@ module Sasha.Internal.ERE (
     eps,
     char,
     charRange,
+    charSet,
     utf8Char,
     anyChar,
     anyUtf8Char,
@@ -118,7 +119,13 @@ char c = EREUnion (W8S.singleton c) Set.empty
 -- | Character range.
 --
 charRange :: Word8 -> Word8 -> ERE
-charRange l u = EREUnion (W8S.range l u) Set.empty
+charRange l u = charSet (W8S.range l u)
+
+-- | Character set.
+--
+-- @since 0.2
+charSet :: Word8Set -> ERE
+charSet s = EREUnion s Set.empty
 
 -- | Any character.
 --

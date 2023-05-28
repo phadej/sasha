@@ -46,7 +46,7 @@ library
     , template-haskell
     , th-letrec         ^>=0.1
     , wide-word         ^>=0.1.4.0
-    , word8set          ^>=0.1
+    , word8set          ^>=0.1.1
 
   exposed-modules:
     Sasha
@@ -76,6 +76,7 @@ test-suite sasha-tests
     , deepseq
     , lattices
     , sasha
+    , template-haskell
 
   -- test dependencies
   build-depends:
