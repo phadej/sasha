@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -ddump-splices #-}
+-- {-# OPTIONS_GHC -ddump-splices #-}
 module Sasha.Example.SaTTH (satthToken, satthUtf8) where
 
 import Algebra.Lattice ((/\))
