@@ -3,6 +3,7 @@ module Sasha.TTH (
     -- * SaTTH, staged Sasha the lexer.
     SaTTH,
     satth,
+    satth',
     -- * ERE specification
     ERE,
     empty,
@@ -53,11 +54,18 @@ satth
     :: forall r. Code Q r           -- ^ no match value
     -> SaTTH r                      -- ^ scanner rules definitions
     -> Code Q (BS.ByteString -> r)  -- ^ scanner code
-satth noMatch rules = [|| \bs -> $$(satth' noMatch rules [|| bs ||]) bs ||]
+satth noMatch rules = [|| \bs -> $$(satthImpl noMatch rules [|| bs ||]) bs ||]
+
+satth'
+    :: forall r. Code Q r           -- ^ no match value
+    -> SaTTH r                      -- ^ scanner rules definitions
+    -> Code Q BS.ByteString
+    -> Code Q r
+satth' noMatch rules bs = [|| $$(satthImpl noMatch rules bs) $$bs ||]
 
 -- | Generate a scanner code.
-satth' :: forall r. Code Q r -> SaTTH r -> Code Q BS.ByteString -> Code Q (BS.ByteString -> r)
-satth' noMatch grammar0 input0 = letrecE
+satthImpl :: forall r. Code Q r -> SaTTH r -> Code Q BS.ByteString -> Code Q (BS.ByteString -> r)
+satthImpl noMatch grammar0 input0 = letrecE
     (\_ -> "state")
     trans
     start

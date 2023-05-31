@@ -29,10 +29,15 @@ common common
   ghc-options:        -Wall
   default-extensions:
     BangPatterns
+    DataKinds
+    GADTs
     OverloadedStrings
     PatternSynonyms
     ScopedTypeVariables
+    StandaloneKindSignatures
     TypeApplications
+    TypeFamilies
+    TypeOperators
 
 library
   import:            common
@@ -43,7 +48,8 @@ library
     , containers        ^>=0.6.4.1
     , lattices          >=2.1        && <2.2        || ^>=2.2
     , QuickCheck        ^>=2.14.2
-    , template-haskell
+    , sop-core          ^>=0.5.0.2
+    , template-haskell  >=2.17.0.0
     , th-letrec         ^>=0.1
     , wide-word         ^>=0.1.4.0
     , word8set          ^>=0.1.1
@@ -52,7 +58,9 @@ library
     Sasha
     Sasha.Internal.ERE
     Sasha.Internal.Word8Set
+    Sasha.Parse
     Sasha.TTH
+    Sasha.TTH.Parse
 
   x-docspec-options:
     -XOverloadedStrings --check-properties "--property-variables=c p r s t q"
@@ -64,6 +72,7 @@ test-suite sasha-tests
   main-is:            sasha-tests.hs
   other-modules:
     Sasha.Example.Alex
+    Sasha.Example.Parse
     Sasha.Example.Sasha
     Sasha.Example.SaTTH
     Sasha.Example.Token
